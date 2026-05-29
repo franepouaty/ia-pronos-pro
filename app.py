@@ -26,10 +26,9 @@ with col_e2:
 if st.button("🔮 Générer l'Analyse Complète"):
     with st.spinner("L'IA Gemini rédige votre rapport d'expert..."):
         try:
-            # Adresse de connexion directe à l'API Gemini
+            # Nouvelle URL 2026 utilisant le modèle mis à jour gemini-1.5-flash
             url_gemini = f"https://googleapis.com{GEMINI_API_KEY}"
             
-            # Un seul prompt ultra-clair pour éviter tout bug de format
             prompt_texte = f"""
             Tu es un expert mondial en pronostics de football. Analyse le match : {eq_dom} contre {eq_ext} dans le championnat {choix_champ}.
             Rédige un rapport complet, très aéré et ultra-lisible en français contenant obligatoirement :
@@ -43,14 +42,14 @@ if st.button("🔮 Générer l'Analyse Complète"):
             payload = {"contents": [{"parts": [{"text": prompt_texte}]}]}
             res = requests.post(url_gemini, json=payload).json()
             
-            # Extraction sécurisée du texte de l'IA
+            # Lecture sécurisée selon la structure du nouveau modèle
             texte_final = res['candidates'][0]['content']['parts'][0]['text']
             
-            # Affichage du rapport dans une grande zone de texte propre
+            # Affichage du rapport
             st.subheader("🧠 Rapport Stratégique de l'IA")
             st.text_area(label="Analyse détaillée générée :", value=texte_final, height=450)
             
             st.success("🎯 Analyse terminée avec succès !")
             
         except Exception as e:
-            st.error("Une erreur est survenue avec l'API Gemini. Vérifiez que votre clé GEMINI_API_KEY est bien copiée sans espace dans vos Secrets Streamlit.")
+            st.error("Problème de validation de la clé. Assurez-vous que le texte dans vos Secrets Streamlit est exactement : GEMINI_API_KEY = \"votre_cle\" sans espaces superflus.")
