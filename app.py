@@ -7,26 +7,16 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 st.set_page_config(page_title="IA Pronos Final", page_icon="⚽", layout="wide")
 
-# Style CSS pour une lisibilité parfaite
-st.markdown("""
-    <style>
-    .main-title { font-size:36px !important; font-weight: bold; color: #1E3A8A; text-align: center; }
-    .section-title { font-size:24px !important; font-weight: bold; color: #2563EB; margin-top: 20px; }
-    .report-box { font-size:18px !important; line-height: 1.6 !important; background-color: #F3F4F6; padding: 20px; border-radius: 12px; color: #1F2937; }
-    .bar-container { background-color: #E5E7EB; border-radius: 8px; padding: 3px; margin-bottom: 10px; }
-    .bar-fill { height: 20px; border-radius: 6px; text-align: right; padding-right: 10px; color: white; font-weight: bold; line-height: 20px; }
-    </style>
-    """, unsafe_allowed_html=True)
-
-st.markdown('<p class="main-title">⚽ Assistant de Pronostics Spécial IA</p>', unsafe_allowed_html=True)
+st.title("⚽ Assistant de Pronostics Spécial IA")
+st.write("Analyse automatique basée sur les connaissances de l'IA Google Gemini.")
 
 # 🏆 SECTION 1 : SELECTION DU CHAMPIONNAT
-st.markdown('<p class="section-title">🏆 Choix de la Compétition</p>', unsafe_allowed_html=True)
+st.subheader("🏆 Choix de la Compétition")
 championnats = ["Ligue 1 (France)", "Premier League (Angleterre)", "La Liga (Espagne)", "Serie A (Italie)", "Bundesliga (Allemagne)", "Ligue des Champions"]
 choix_champ = st.selectbox("Sélectionnez le championnat à analyser :", championnats)
 
 # ⚔️ SECTION 2 : SAISIE DES EQUIPES
-st.markdown('<p class="section-title">⚔️ Les Clubs Face-à-Face</p>', unsafe_allowed_html=True)
+st.subheader("⚔️ Les Clubs Face-à-Face")
 col_e1, col_e2 = st.columns(2)
 with col_e1:
     eq_dom = st.text_input("🏠 Équipe à Domicile", "Paris SG")
@@ -57,42 +47,41 @@ if st.button("🔮 Générer l'Analyse Complète"):
             payload = {"contents": [{"parts": [{"text": prompt_data}]}]}
             res = requests.post(url_gemini, json=payload).json()
             
-            # Correction de la lecture sécurisée du dictionnaire JSON pour éviter l'erreur TypeError
-            texte_recu = res['candidates'][0]['content']['parts'][0]['text']
+            texte_recu = res['candidates']['content']['parts']['text']
             clean_json = texte_recu.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_json)
             
             # --- FORME RECENTE ---
-            st.markdown('<p class="section-title">📊 Dynamique de Forme Récente</p>', unsafe_allowed_html=True)
-            st.info(f"🏠 Derniers matchs de **{eq_dom}** : `{data['forme_domicile']}` | 🚀 Derniers matchs de **{eq_ext}** : `{data['forme_exterieur']}`")
+            st.subheader("📊 Dynamique de Forme Récente")
+            st.info(f"🏠 Derniers matchs de **{eq_dom}** : {data['forme_domicile']} | 🚀 Derniers matchs de **{eq_ext}** : {data['forme_exterieur']}")
                 
             # --- TABLEAU DES JOUEURS ---
-            st.markdown('<p class="section-title">🏃‍♂️ Comportement et Statistiques des Joueurs</p>', unsafe_allowed_html=True)
+            st.subheader("🏃‍♂️ Comportement et Statistiques des Joueurs")
             table_data = [
                 {"Équipe": eq_dom, "Joueur": data['j_dom_nom'], "Buts": data['j_dom_buts'], "Tirs Cadrés": data['j_dom_tirs'], "Fautes": data['j_dom_fautes'], "Cartons": data['j_dom_cartons']},
                 {"Équipe": eq_ext, "Joueur": data['j_ext_nom'], "Buts": data['j_ext_buts'], "Tirs Cadrés": data['j_ext_tirs'], "Fautes": data['j_ext_fautes'], "Cartons": data['j_ext_cartons']}
             ]
             st.table(table_data)
                 
-            # --- GRAPHIQUE HTML PROPRE ---
-            st.markdown('<p class="section-title">📈 Probabilités du Match</p>', unsafe_allowed_html=True)
-            st.markdown(f"""
-                <p>Victoire {eq_dom} ({data['p_dom']}%)</p>
-                <div class="bar-container"><div class="bar-fill" style="width: {data['p_dom']}%; background-color: #10B981;">{data['p_dom']}%</div></div>
-                <p>Match Nul ({data['p_nul']}%)</p>
-                <div class="bar-container"><div class="bar-fill" style="width: {data['p_nul']}%; background-color: #F59E0B;">{data['p_nul']}%</div></div>
-                <p>Victoire {eq_ext} ({data['p_ext']}%)</p>
-                <div class="bar-container"><div class="bar-fill" style="width: {data['p_ext']}%; background-color: #EF4444;">{data['p_ext']}%</div></div>
-            """, unsafe_allowed_html=True)
+            # --- GRAPHIQUE INTEGRÉ STANDARD ---
+            st.subheader("📈 Probabilités du Match")
+            st.progress(int(data['p_dom']))
+            st.write(f"🟢 Chance Victoire **{eq_dom}** : {data['p_dom']}%")
+            
+            st.progress(int(data['p_nul']))
+            st.write(f"🟡 Chance **Match Nul** : {data['p_nul']}%")
+            
+            st.progress(int(data['p_ext']))
+            st.write(f"🔴 Chance Victoire **{eq_ext}** : {data['p_ext']}%")
             
             # --- RAPPORT TEXTE ---
-            st.markdown('<p class="section-title">🧠 Rapport Stratégique Rédigé par l\'IA</p>', unsafe_allowed_html=True)
+            st.subheader("🧠 Rapport Stratégique Rédigé par l'IA")
             prompt_texte = f"Rédige une analyse détaillée en français pour le match {eq_dom} contre {eq_ext}. Explique la physionomie probable du match, l'importance des tirs cadrés et des cartons à venir, puis propose un score exact."
             payload_txt = {"contents": [{"parts": [{"text": prompt_texte}]}]}
             res_txt = requests.post(url_gemini, json=payload_txt).json()
-            texte_final = res_txt['candidates'][0]['content']['parts'][0]['text']
+            texte_final = res_txt['candidates']['content']['parts']['text']
             
-            st.markdown(f'<div class="report-box">{texte_final.replace("\n", "<br>")}</div>', unsafe_allowed_html=True)
+            st.text_area(label="Analyse détaillée :", value=texte_final, height=300)
             
         except Exception as e:
-            st.error("L'IA se synchronise. Veuillez recliquer sur le bouton pour stabiliser l'affichage.")
+            st.error("L'IA se synchronise. Veuillez recliquer sur le bouton pour valider l'affichage.")
