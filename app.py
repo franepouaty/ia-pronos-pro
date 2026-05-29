@@ -1,21 +1,20 @@
 import streamlit as st
-import google.generativeai as genai
-import pandas as pd
-import plotly.express as px
+import requests
 import json
 
-# Récupération automatique de votre clé Gemini qui fonctionne
+# Récupération de votre clé Gemini sécurisée
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-genai.configure(api_key=GEMINI_API_KEY)
 
-st.set_page_config(page_title="IA Pronos Expert", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="IA Pronos Final", page_icon="⚽", layout="wide")
 
-# Style pour rendre les textes ultra-lisibles
+# Style CSS pour une lisibilité parfaite et de beaux affichages
 st.markdown("""
     <style>
-    .main-title { font-size:38px !important; font-weight: bold; color: #1E3A8A; text-align: center; }
-    .section-title { font-size:24px !important; font-weight: bold; color: #2563EB; margin-top: 25px; }
-    .report-box { font-size:18px !important; line-height: 1.6 !important; background-color: #F3F4F6; padding: 25px; border-radius: 12px; color: #1F2937; }
+    .main-title { font-size:36px !important; font-weight: bold; color: #1E3A8A; text-align: center; }
+    .section-title { font-size:24px !important; font-weight: bold; color: #2563EB; margin-top: 20px; }
+    .report-box { font-size:18px !important; line-height: 1.6 !important; background-color: #F3F4F6; padding: 20px; border-radius: 12px; color: #1F2937; }
+    .bar-container { background-color: #E5E7EB; border-radius: 8px; padding: 3px; margin-bottom: 10px; }
+    .bar-fill { height: 20px; border-radius: 6px; text-align: right; padding-right: 10px; color: white; font-weight: bold; line-height: 20px; }
     </style>
     """, unsafe_allowed_html=True)
 
@@ -36,68 +35,64 @@ with col_e2:
 
 # 🔮 BOUTON D'ACTION
 if st.button("🔮 Générer l'Analyse Complète"):
-    with st.spinner("L'IA analyse le match, prépare les graphiques et les statistiques..."):
+    with st.spinner("L'IA prépare les statistiques et l'analyse..."):
         try:
-            # Demande structurée à l'IA pour créer les statistiques
+            # Connexion directe à Gemini sans passer par le module défectueux
+            url_gemini = f"https://googleapis.com{GEMINI_API_KEY}"
+            
             prompt_data = f"""
             Donne les statistiques estimées actuelles pour le match {eq_dom} vs {eq_ext} ({choix_champ}) au format JSON strict. 
             Renvoie UNIQUEMENT l'objet JSON ci-dessous, sans aucune phrase autour, sans balise de code markdown.
             {{
                 "forme_domicile": "WWDLW",
                 "forme_exterieur": "LDWLW",
-                "pourcentage_domicile": 55,
-                "pourcentage_nul": 25,
-                "pourcentage_exterieur": 20,
-                "joueurs_cle_domicile": [
-                    {{"nom": "Joueur A", "buts": 12, "tirs_cadres": 24, "fautes": 8, "cartons": 1}}
-                ],
-                "joueurs_cle_exterieur": [
-                    {{"nom": "Joueur B", "buts": 9, "tirs_cadres": 18, "fautes": 14, "cartons": 4}}
-                ]
+                "p_dom": 55,
+                "p_nul": 25,
+                "p_ext": 20,
+                "j_dom_nom": "Joueur A", "j_dom_buts": 12, "j_dom_tirs": 24, "j_dom_fautes": 8, "j_dom_cartons": 1,
+                "j_ext_nom": "Joueur B", "j_ext_buts": 9, "j_ext_tirs": 18, "j_ext_fautes": 14, "j_ext_cartons": 4
             }}
             Donne de vrais noms de joueurs actuels de ces clubs et des statistiques cohérentes.
             """
             
-            model = genai.GenerativeModel('gemini-pro')
-            reponse_data = model.generate_content(prompt_data)
+            payload = {"contents": [{"parts": [{"text": prompt_data}]}]}
+            res = requests.post(url_gemini, json=payload).json()
+            texte_recu = res['candidates'][0]['content']['parts'][0]['text']
             
-            clean_json = reponse_data.text.strip().replace("```json", "").replace("```", "")
+            clean_json = texte_recu.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_json)
             
-            # --- AFFICHAGE DE LA FORME RECENTE ---
+            # --- FORME RECENTE ---
             st.markdown('<p class="section-title">📊 Dynamique de Forme Récente</p>', unsafe_allowed_html=True)
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                st.info(f"Derniers matchs de **{eq_dom}** : `{data['forme_domicile']}` (W=Victoire, D=Nul, L=Défaite)")
-            with col_f2:
-                st.info(f"Derniers matchs de **{eq_ext}** : `{data['forme_exterieur']}`")
+            st.info(f"🏠 Derniers matchs de **{eq_dom}** : `{data['forme_domicile']}` | 🚀 Derniers matchs de **{eq_ext}** : `{data['forme_exterieur']}`")
                 
-            # --- TABLEAUX DES JOUEURS CLÉS ---
+            # --- TABLEAU DES JOUEURS ---
             st.markdown('<p class="section-title">🏃‍♂️ Comportement et Statistiques des Joueurs</p>', unsafe_allowed_html=True)
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.write(f"**Joueurs clés - {eq_dom}**")
-                st.dataframe(pd.DataFrame(data['joueurs_cle_domicile']), use_container_width=True)
-            with col_t2:
-                st.write(f"**Joueurs clés - {eq_ext}**")
-                st.dataframe(pd.DataFrame(data['joueurs_cle_exterieur']), use_container_width=True)
+            table_data = [
+                {"Équipe": eq_dom, "Joueur": data['j_dom_nom'], "Buts": data['j_dom_buts'], "Tirs Cadrés": data['j_dom_tirs'], "Fautes": data['j_dom_fautes'], "Cartons": data['j_dom_cartons']},
+                {"Équipe": eq_ext, "Joueur": data['j_ext_nom'], "Buts": data['j_ext_buts'], "Tirs Cadrés": data['j_ext_tirs'], "Fautes": data['j_ext_fautes'], "Cartons": data['j_ext_cartons']}
+            ]
+            st.table(table_data)
                 
-            # --- GRAPHIQUE DES POURCENTAGES ---
+            # --- GRAPHIQUE HTML PROPRE ---
             st.markdown('<p class="section-title">📈 Probabilités du Match</p>', unsafe_allowed_html=True)
-            df_chart = pd.DataFrame({
-                'Issue du match': [f"Victoire {eq_dom}", 'Match Nul', f"Victoire {eq_ext}"],
-                'Chances (%)': [data['pourcentage_domicile'], data['pourcentage_nul'], data['pourcentage_exterieur']]
-            })
-            fig = px.bar(df_chart, x='Issue du match', y='Chances (%)', color='Issue du match', text='Chances (%)',
-                         color_discrete_sequence=['#10B981', '#F59E0B', '#EF4444'])
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown(f"""
+                <p>Victoire {eq_dom} ({data['p_dom']}%)}</p>
+                <div class="bar-container"><div class="bar-fill" style="width: {data['p_dom']}%; background-color: #10B981;">{data['p_dom']}%</div></div>
+                <p>Match Nul ({data['p_nul']}%)}</p>
+                <div class="bar-container"><div class="bar-fill" style="width: {data['p_nul']}%; background-color: #F59E0B;">{data['p_nul']}%</div></div>
+                <p>Victoire {eq_ext} ({data['p_ext']}%)}</p>
+                <div class="bar-container"><div class="bar-fill" style="width: {data['p_ext']}%; background-color: #EF4444;">{data['p_ext']}%</div></div>
+            """, unsafe_allowed_html=True)
             
-            # --- RAPPORT TEXTE GLOBAL ---
+            # --- RAPPORT TEXTE ---
             st.markdown('<p class="section-title">🧠 Rapport Stratégique Rédigé par l\'IA</p>', unsafe_allowed_html=True)
             prompt_texte = f"Rédige une analyse détaillée en français pour le match {eq_dom} contre {eq_ext}. Explique la physionomie probable du match, l'importance des tirs cadrés et des cartons à venir, puis propose un score exact."
-            reponse_texte = model.generate_content(prompt_texte)
-            st.markdown(f'<div class="report-box">{reponse_texte.text.replace("\n", "<br>")}</div>', unsafe_allowed_html=True)
+            payload_txt = {"contents": [{"parts": [{"text": prompt_texte}]}]}
+            res_txt = requests.post(url_gemini, json=payload_txt).json()
+            texte_final = res_txt['candidates'][0]['content']['parts'][0]['text']
+            
+            st.markdown(f'<div class="report-box">{texte_final.replace("\n", "<br>")}</div>', unsafe_allowed_html=True)
             
         except Exception as e:
-            st.error("L'IA met à jour les données. Veuillez recliquer sur le bouton pour afficher le résultat.")
+            st.error("Une erreur s'est produite lors de la génération. Veuillez cliquer à nouveau sur le bouton.")
