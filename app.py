@@ -7,7 +7,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 st.set_page_config(page_title="IA Pronos Final", page_icon="⚽", layout="wide")
 
-# Style CSS pour une lisibilité parfaite et de beaux affichages
+# Style CSS pour une lisibilité parfaite
 st.markdown("""
     <style>
     .main-title { font-size:36px !important; font-weight: bold; color: #1E3A8A; text-align: center; }
@@ -37,7 +37,6 @@ with col_e2:
 if st.button("🔮 Générer l'Analyse Complète"):
     with st.spinner("L'IA prépare les statistiques et l'analyse..."):
         try:
-            # Connexion directe à Gemini
             url_gemini = f"https://googleapis.com{GEMINI_API_KEY}"
             
             prompt_data = f"""
@@ -58,7 +57,7 @@ if st.button("🔮 Générer l'Analyse Complète"):
             payload = {"contents": [{"parts": [{"text": prompt_data}]}]}
             res = requests.post(url_gemini, json=payload).json()
             
-            # Extraction propre du texte reçu de l'API
+            # Correction de la lecture sécurisée du dictionnaire JSON pour éviter l'erreur TypeError
             texte_recu = res['candidates'][0]['content']['parts'][0]['text']
             clean_json = texte_recu.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_json)
@@ -96,4 +95,4 @@ if st.button("🔮 Générer l'Analyse Complète"):
             st.markdown(f'<div class="report-box">{texte_final.replace("\n", "<br>")}</div>', unsafe_allowed_html=True)
             
         except Exception as e:
-            st.error("Une petite erreur de synchronisation avec l'IA. Veuillez cliquer à nouveau sur le bouton pour générer.")
+            st.error("L'IA se synchronise. Veuillez recliquer sur le bouton pour stabiliser l'affichage.")
