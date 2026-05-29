@@ -1,92 +1,106 @@
 import streamlit as st
 import requests
-import random
+from datetime import datetime
 
-st.set_page_config(page_title="IA Pronos Finale", page_icon="⚽", layout="wide")
+# Récupération de la clé de football uniquement
+FOOTBALL_API_KEY = st.secrets["FOOTBALL_API_KEY"]
 
-st.title("⚽ Assistant de Pronostics Spécial IA")
-st.write("Analyse automatique combinée par IA et algorithme statistique interne.")
+headers = {
+    'x-rapidapi-host': "v3.football.api-sports.io",
+    'x-rapidapi-key': FOOTBALL_API_KEY
+}
 
-# 🏆 SECTION 1 : SELECTION DU CHAMPIONNAT
+st.set_page_config(page_title="Pronos Live Réels", page_icon="⚽", layout="wide")
+st.title("⚽ Analyseur de Matchs Réels en Temps Réel")
+st.write("Cette version affiche la grille des vrais prochains matchs de la semaine.")
+
+# Sélection du championnat
 st.subheader("🏆 Choix de la Compétition")
-championnats = ["Ligue 1 (France)", "Premier League (Angleterre)", "La Liga (Espagne)", "Serie A (Italie)", "Bundesliga (Allemagne)", "Ligue des Champions"]
-choix_champ = st.selectbox("Sélectionnez le championnat à analyser :", championnats)
+options_championnats = {
+    "Ligue 1 (France)": 61,
+    "Premier League (Angleterre)": 39,
+    "La Liga (Espagne)": 140,
+    "Serie A (Italie)": 135,
+    "Bundesliga (Allemagne)": 78
+}
+choix_champ = st.selectbox("Sélectionnez votre championnat :", list(options_championnats.keys()))
+id_ligue = options_championnats[choix_champ]
+annee_actuelle = datetime.now().year
 
-# ⚔️ SECTION 2 : SAISIE DES EQUIPES
-st.subheader("⚔️ Les Clubs Face-à-Face")
-col_e1, col_e2 = st.columns(2)
-with col_e1:
-    eq_dom = st.text_input("🏠 Équipe à Domicile", "Paris SG")
-with col_e2:
-    eq_ext = st.text_input("🚀 Équipe à l'Extérieur", "Marseille")
+# --- CHARGEMENT DE LA GRILLE DES MATCHS DE LA SEMAINE ---
+st.subheader("📅 Grille des prochains matchs programmés")
 
-# 🔮 BOUTON D'ACTION
-if st.button("🔮 Générer l'Analyse Complète"):
-    with st.spinner("Analyse des dynamiques et génération du rapport..."):
-        
-        # --- ALGORITHME STATISTIQUE INTERNE (SECOURS IMMÉDIAT) ---
-        # Génération de formes cohérentes pour l'affichage
-        formes_possibles = ["WWDLW", "WDLWD", "LWWDL", "WDWWW", "LLWDL", "DDWLD"]
-        f_dom = random.choice(formes_possibles)
-        f_ext = random.choice(formes_possibles)
-        
-        # Calcul de scores de force factices basés sur les lettres
-        score_dom = f_dom.count('W') * 3 + f_dom.count('D') + 2 # +2 avantage domicile
-        score_ext = f_ext.count('W') * 3 + f_ext.count('D')
-        total = score_dom + score_ext
-        
-        p_dom = int((score_dom / total) * 100)
-        p_ext = int((score_ext / total) * 100)
-        p_nul = 100 - p_dom - p_ext
-        
-        # Simulation de score exact réaliste
-        if p_dom > p_ext + 10:
-            buts_dom, buts_ext = random.choice([(2, 0), (2, 1), (3, 1)])
-        elif p_ext > p_dom + 10:
-            buts_dom, buts_ext = random.choice([(0, 1), (1, 2), (0, 2)])
-        else:
-            buts_dom, buts_ext = random.choice([(1, 1), (2, 2), (0, 0)])
+@st.cache_data(ttl=1800)
+def obtenir_matchs_semaine(ligue, annee):
+    # Récupère les 10 prochains vrais matchs de la ligue
+    url = f"https://api-sports.io{ligue}&season={annee}&next=10"
+    res = requests.get(url, headers=headers).json()
+    return res.get('response', [])
 
-        try:
-            # Tentative d'appel à l'IA publique
-            url_ia = "https://huggingface.co"
-            prompt_texte = f"<|system|>\nTu es un expert en football.\n<|user|>\nAnalyse {eq_dom} contre {eq_ext} ({choix_champ}). Donne la forme, les joueurs clés et un score exact probable en français.\n<|assistant|>"
-            payload = {"inputs": prompt_texte, "parameters": {"max_new_tokens": 400, "temperature": 0.7}}
+try:
+    fixtures = obtenir_matchs_semaine(id_ligue, annee_actuelle) or obtenir_matchs_semaine(id_ligue, annee_actuelle - 1)
+    
+    if fixtures:
+        liste_matchs = []
+        details_matchs = {}
+        
+        for f in fixtures:
+            titre = f"{f['teams']['home']['name']} 🆚 {f['teams']['away']['name']}"
+            liste_matchs.append(titre)
+            details_matchs[titre] = {
+                "id_home": f['teams']['home']['id'],
+                "name_home": f['teams']['home']['name'],
+                "id_away": f['teams']['away']['id'],
+                "name_away": f['teams']['away']['name']
+            }
             
-            res = requests.post(url_ia, json=payload, timeout=4).json()
-            texte_final = res['generated_text'].split("<|assistant|>")[-1].strip()
+        match_choisi = st.selectbox("👉 Choisissez un vrai match de la grille à analyser :", liste_matchs)
+        
+        if match_choisi and st.button("🔮 Calculer les Statistiques Réelles & Pronostiquer"):
+            data_m = details_matchs[match_choisi]
             
-        except Exception:
-            # Si le serveur de l'IA est saturé, l'algorithme génère instantanément un rapport de qualité
-            texte_final = f"""📊 1. ÉTAT DE FORME RÉCENT
-• {eq_dom} : {f_dom} (Dynamique stable, forte efficacité à domicile)
-• {eq_ext} : {f_ext} (Performances variables lors des déplacements)
+            with st.spinner("Récupération des vrais résultats récents..."):
+                # Récupération de la vraie forme
+                def get_real_form(team_id):
+                    url = f"https://api-sports.io{id_ligue}&season={annee_actuelle}&team={team_id}"
+                    r = requests.get(url, headers=headers).json()
+                    if not r.get('response') or not r['response'].get('form'):
+                        url = f"https://api-sports.io{id_ligue}&season={annee_actuelle-1}&team={team_id}"
+                        r = requests.get(url, headers=headers).json()
+                    f_str = r.get('response', {}).get('form', 'NNNNN')
+                    return f_str[-5:] if f_str else 'NNNNN'
+                
+                forme_dom = get_real_form(data_m['id_home'])
+                forme_ext = get_real_form(data_m['id_away'])
+                
+                # Affichage des formes réelles
+                st.markdown("### 📊 Forme Récente Réelle (5 derniers matchs)")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.info(f"🏠 **{data_m['name_home']}** : `{forme_dom}`")
+                with col2:
+                    st.info(f"🚀 **{data_m['name_away']}** : `{forme_ext}`")
+                
+                # Calcul de l'algorithme statistique
+                pts_dom = sum([3 if l == 'W' else 1 if l == 'D' else 0 for l in forme_dom]) + 2
+                pts_ext = sum([3 if l == 'W' else 1 if l == 'D' else 0 for l in forme_ext])
+                total = pts_dom + pts_ext if (pts_dom + pts_ext) > 0 else 1
+                
+                p_dom = int((pts_dom / total) * 100)
+                p_ext = int((pts_ext / total) * 100)
+                p_nul = 100 - p_dom - p_ext
+                
+                # Affichage des probabilités réelles
+                st.markdown("### 📈 Probabilités Basées sur les Vrais Résultats")
+                st.progress(p_dom)
+                st.write(f"🟢 Victoire **{data_m['name_home']}** : {p_dom}%")
+                st.progress(p_nul)
+                st.write(f"🟡 Match Nul : {p_nul}%")
+                st.progress(p_ext)
+                st.write(f"🔴 Victoire **{data_m['name_away']}** : {p_ext}%")
+                
+    else:
+        st.error("Aucun match trouvé pour ce championnat. Vérifiez la validité de votre clé de football.")
 
-🏃‍♂️ 2. ANALYSE DES JOUEURS CLÉS
-• Pour {eq_dom} : Les attaquants principaux affichent un taux de tirs cadrés supérieur à 40%. Vigilance requise sur le milieu défensif souvent exposé aux fautes tactiques.
-• Pour {eq_ext} : Le bloc défensif concède peu de buts mais l'animation offensive manque de liant, limitant le nombre de tirs à l'extérieur.
-
-📈 3. PROBABILITÉS DE L'ÉVÉNEMENT
-• Victoire {eq_dom} : {p_dom}%
-• Match Nul : {p_nul}%
-• Victoire {eq_ext} : {p_ext}%
-
-🎯 4. PRONOSTIC FINAL
-Match intense tactiquement. L'avantage d'évoluer à domicile et la fraîcheur physique penchent en faveur de l'équipe locale.
-👉 Score exact probable : {buts_dom} - {buts_ext}"""
-
-        # --- AFFICHAGE DU RAPPORT SANS ERREUR ---
-        st.subheader("📊 Données Globales d'Avant-Match")
-        st.info(f"🏠 Forme récente de **{eq_dom}** : `{f_dom}` | 🚀 Forme récente de **{eq_ext}** : `{f_ext}`")
-        
-        st.subheader("📈 Répartition des Probabilités")
-        st.progress(p_dom)
-        st.write(f"🟢 Chance Victoire **{eq_dom}** : {p_dom}%")
-        st.progress(p_nul)
-        st.write(f"🟡 Chance **Match Nul** : {p_nul}%")
-        st.progress(p_ext)
-        st.write(f"🔴 Chance Victoire **{eq_ext}** : {p_ext}%")
-        
-        st.subheader("🧠 Rapport d'Analyse Stratégique")
-        st.text_area(label="Analyse détaillée :", value=texte_final, height=350)
-        st.success("🎯 Pronostic généré instantanément !")
+except Exception as e:
+    st.error("Erreur de connexion. Assurez-vous que votre FOOTBALL_API_KEY dans les Secrets Streamlit est valide.")
