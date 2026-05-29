@@ -37,7 +37,7 @@ with col_e2:
 if st.button("🔮 Générer l'Analyse Complète"):
     with st.spinner("L'IA prépare les statistiques et l'analyse..."):
         try:
-            # Connexion directe à Gemini sans passer par le module défectueux
+            # Connexion directe à Gemini
             url_gemini = f"https://googleapis.com{GEMINI_API_KEY}"
             
             prompt_data = f"""
@@ -57,8 +57,9 @@ if st.button("🔮 Générer l'Analyse Complète"):
             
             payload = {"contents": [{"parts": [{"text": prompt_data}]}]}
             res = requests.post(url_gemini, json=payload).json()
-            texte_recu = res['candidates'][0]['content']['parts'][0]['text']
             
+            # Extraction propre du texte reçu de l'API
+            texte_recu = res['candidates'][0]['content']['parts'][0]['text']
             clean_json = texte_recu.strip().replace("```json", "").replace("```", "")
             data = json.loads(clean_json)
             
@@ -77,11 +78,11 @@ if st.button("🔮 Générer l'Analyse Complète"):
             # --- GRAPHIQUE HTML PROPRE ---
             st.markdown('<p class="section-title">📈 Probabilités du Match</p>', unsafe_allowed_html=True)
             st.markdown(f"""
-                <p>Victoire {eq_dom} ({data['p_dom']}%)}</p>
+                <p>Victoire {eq_dom} ({data['p_dom']}%)</p>
                 <div class="bar-container"><div class="bar-fill" style="width: {data['p_dom']}%; background-color: #10B981;">{data['p_dom']}%</div></div>
-                <p>Match Nul ({data['p_nul']}%)}</p>
+                <p>Match Nul ({data['p_nul']}%)</p>
                 <div class="bar-container"><div class="bar-fill" style="width: {data['p_nul']}%; background-color: #F59E0B;">{data['p_nul']}%</div></div>
-                <p>Victoire {eq_ext} ({data['p_ext']}%)}</p>
+                <p>Victoire {eq_ext} ({data['p_ext']}%)</p>
                 <div class="bar-container"><div class="bar-fill" style="width: {data['p_ext']}%; background-color: #EF4444;">{data['p_ext']}%</div></div>
             """, unsafe_allowed_html=True)
             
@@ -95,4 +96,4 @@ if st.button("🔮 Générer l'Analyse Complète"):
             st.markdown(f'<div class="report-box">{texte_final.replace("\n", "<br>")}</div>', unsafe_allowed_html=True)
             
         except Exception as e:
-            st.error("Une erreur s'est produite lors de la génération. Veuillez cliquer à nouveau sur le bouton.")
+            st.error("Une petite erreur de synchronisation avec l'IA. Veuillez cliquer à nouveau sur le bouton pour générer.")
